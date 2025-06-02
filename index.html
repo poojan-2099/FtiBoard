@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Enhanced Fitness Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Visualization & Content Choices: 
+        - Report Info: Workout Instructions -> Goal: Guide/Inform -> Viz/Presentation Method: Text-based instructions integrated into workout displays. -> Interaction: None (informational). -> Justification: Provides key principles for effective strength training. -> Library/Method: HTML/JS.
+        - Meal Recipes, User's physical stats, Daily Tasks, Time-based reminders, PFM chart, Macro chart, Calendar, Accordions remain as in previous version. -->
+    <style>
+        body { font-family: 'Inter', sans-serif; scroll-behavior: smooth; }
+        .chart-container { position: relative; width: 100%; max-width: 500px; margin-left: auto; margin-right: auto; height: 250px; max-height: 300px; } /* Adjusted height for mobile */
+        @media (min-width: 640px) { .chart-container { height: 280px; max-height: 350px; } } /* sm breakpoint */
+        @media (min-width: 768px) { .chart-container { height: 320px; } } /* md breakpoint */
+        
+        .active-tab { background-color: #0d9488; color: #ffffff; box-shadow: 0 4px 6px -1px rgba(13, 148, 136, 0.3), 0 2px 4px -2px rgba(13, 148, 136, 0.2); }
+        .inactive-tab { background-color: #e5e7eb; color: #374151; }
+        .inactive-tab:hover { background-color: #d1d5db; }
+        
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; } /* Reduced gap for mobile */
+        @media (min-width: 640px) { .calendar-grid { gap: 4px; } }
+
+        .calendar-day { aspect-ratio: 1/1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 2px; border-radius: 0.375rem; cursor: pointer; transition: background-color 0.2s; font-size: 0.7rem; } /* Smaller padding and font for mobile */
+        @media (min-width: 640px) { .calendar-day { padding: 4px; font-size: 0.75rem; } }
+        
+        .calendar-day.empty { background-color: transparent; cursor: default; }
+        .calendar-day.other-month { color: #9ca3af; }
+        .calendar-day:not(.empty):not(.other-month):hover { background-color: #ccfbf1; }
+        .calendar-day.selected { background-color: #0d9488; color: white; font-weight: 600; }
+        .calendar-day.today:not(.selected) { background-color: #a7f3d0; color: #065f46; font-weight: 600; }
+        
+        .workout-tag { font-size: 0.6rem; padding: 1px 3px; border-radius: 0.25rem; margin-top: 1px; text-align: center; line-height: 1; } /* Smaller tag for mobile */
+        @media (min-width: 640px) { .workout-tag { font-size: 0.65rem; padding: 2px 4px; margin-top: 2px;} }
+
+        .instruction-text { font-size: 0.75rem; color: #6b7280; margin-top: -0.25rem; margin-bottom: 1rem; text-align: center; }
+        @media (min-width: 640px) { .instruction-text { font-size: 0.8rem; } }
+
+        .reminder-box { background-color: #f0fdfa; border-left: 4px solid #0d9488; padding: 0.75rem 1rem; margin-top: 1rem; border-radius: 0.375rem; }
+        .reminder-box p { color: #134e4a; font-size: 0.875rem;}
+        .reminder-box strong { color: #0f766e; }
+        
+        .task-item { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid #e5e7eb; }
+        .task-item:last-child { border-bottom: none; }
+        .task-item p { font-size: 0.875rem; }
+        .task-item p.completed { text-decoration: line-through; color: #6b7280; }
+        
+        .task-button { padding: 0.25rem 0.5rem; font-size: 0.7rem; border-radius: 0.25rem; transition: background-color 0.2s; white-space: nowrap;}
+        @media (min-width: 640px) { .task-button { font-size: 0.75rem; } }
+        .task-button-done { background-color: #10b981; color: white; }
+        .task-button-pending { background-color: #9ca3af; color: white; }
+        .task-button-pending:hover { background-color: #6b7280; }
+        
+        .calculator-input { width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem; margin-bottom: 0.75rem; font-size: 0.875rem; }
+        .calculator-label { display: block; margin-bottom: 0.25rem; font-size: 0.875rem; font-weight: 500; color: #374151; }
+        .calculator-button { background-color: #0d9488; color: white; padding: 0.6rem 1.2rem; border-radius: 0.375rem; font-semibold hover:bg-teal-700 transition-colors w-full; }
+        
+        .results-area { margin-top: 1rem; padding: 1rem; background-color: #f0fdfa; border-radius: 0.375rem; border: 1px solid #5eead4; }
+        .results-area h4 { font-semibold; color: #0f766e; margin-bottom: 0.5rem; }
+        .results-area p { margin-bottom: 0.25rem; font-size: 0.875rem; color: #134e4a;}
+        
+        .unit-toggle-group { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+        .unit-toggle-button { flex-grow: 1; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.75rem; cursor: pointer; text-align: center;}
+        @media (min-width: 640px) { .unit-toggle-button { font-size: 0.8rem; } }
+        .unit-toggle-button.active { background-color: #0d9488; color: white; border-color: #0d9488; }
+        
+        .imperial-fields { display: flex; gap: 0.5rem; }
+        .imperial-fields input { flex-grow: 1; }
+        
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 50; transition: opacity 0.3s ease; padding: 1rem;}
+        .modal-content { background-color: white; padding: 1.5rem; border-radius: 0.5rem; width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); }
+        .modal-close-button { background-color: #ef4444; color: white; padding: 0.5rem 1rem; border-radius: 0.375rem; font-semibold float: right; margin-top: 1rem; }
+        
+        .meal-item-clickable { cursor: pointer; text-decoration: underline; color: #0d9488; }
+        .meal-item-clickable:hover { color: #0f766e; }
+        
+        .workout-instructions { font-size: 0.75rem; color: #4b5563; background-color: #f3f4f6; padding: 0.75rem; border-radius: 0.375rem; margin-top: 0.5rem; border: 1px solid #e5e7eb;}
+        @media (min-width: 640px) { .workout-instructions { font-size: 0.8rem; } }
+        .workout-instructions h5 { font-semibold; margin-bottom: 0.25rem; color: #1f2937;}
+        .workout-instructions ul { list-style-type: disc; margin-left: 1rem; }
+    </style>
+</head>
+<body class="bg-stone-50 text-stone-700 antialiased">
+
+    <div id="app" class="max-w-7xl mx-auto p-2 sm:p-4 lg:p-6">
+        
+        <header class="text-center mb-4 sm:mb-8">
+            <h1 class="text-2xl sm:text-4xl font-bold text-stone-900">Your Enhanced Fitness Dashboard</h1>
+            <p class="text-stone-600 mt-1 sm:mt-2 text-xs sm:text-base">Your advanced plan with recipes, reminders, task logging & calculators to achieve 20% PFM.</p>
+        </header>
+
+        <nav class="flex flex-nowrap overflow-x-auto justify-start sm:justify-center gap-1 sm:gap-2 mb-4 sm:mb-8 sticky top-0 bg-stone-50 py-2 sm:py-3 z-10 shadow-sm rounded-lg -mx-2 px-2 sm:mx-0 sm:px-0">
+            <button data-tab="today" class="tab-button px-3 py-2 text-xs sm:text-base rounded-md font-semibold transition-all duration-200 flex-shrink-0">Today</button>
+            <button data-tab="calendar" class="tab-button px-3 py-2 text-xs sm:text-base rounded-md font-semibold transition-all duration-200 flex-shrink-0">Calendar View</button>
+            <button data-tab="nutrition" class="tab-button px-3 py-2 text-xs sm:text-base rounded-md font-semibold transition-all duration-200 flex-shrink-0">Nutrition Hub</button>
+            <button data-tab="workouts" class="tab-button px-3 py-2 text-xs sm:text-base rounded-md font-semibold transition-all duration-200 flex-shrink-0">Workout Library</button>
+            <button data-tab="calculators" class="tab-button px-3 py-2 text-xs sm:text-base rounded-md font-semibold transition-all duration-200 flex-shrink-0">Calculators</button>
+            <button data-tab="mindset" class="tab-button px-3 py-2 text-xs sm:text-base rounded-md font-semibold transition-all duration-200 flex-shrink-0">Mindset & Progress</button>
+        </nav>
+
+        <main>
+            <div id="today-content" class="tab-content bg-white p-3 sm:p-6 rounded-xl shadow-lg">
+                <h2 class="text-xl sm:text-2xl font-bold mb-1 text-center text-stone-800">Plan for Today: <span id="today-date" class="text-teal-600"></span></h2>
+                <p class="instruction-text">Log your completed tasks, get reminders, and click on meals for recipes.</p>
+                
+                <div id="today-focus-reminder" class="reminder-box mb-4 sm:mb-6">
+                    <p><strong class="block mb-1">Today's Focus:</strong> <span id="today-reminder-message">Loading reminder...</span></p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-3 sm:gap-6">
+                    <div class="bg-stone-50 p-3 sm:p-6 rounded-lg border border-stone-200">
+                        <h3 class="font-semibold text-md sm:text-lg mb-2 sm:mb-3 text-stone-800">Today's Workout Task</h3>
+                        <div id="today-workout-task-container"></div>
+                    </div>
+                    <div class="bg-stone-50 p-3 sm:p-6 rounded-lg border border-stone-200">
+                        <h3 class="font-semibold text-md sm:text-lg mb-2 sm:mb-3 text-stone-800">Today's Nutrition Tasks</h3>
+                        <div id="today-nutrition-tasks-container"></div>
+                    </div>
+                </div>
+
+                 <div class="bg-teal-600 text-white p-3 sm:p-6 rounded-lg mt-4 sm:mt-6 shadow-md">
+                    <h3 class="font-semibold text-md sm:text-lg mb-1 sm:mb-2">💡 Motivational Quote</h3>
+                    <p id="today-motivation" class="italic text-xs sm:text-base"></p>
+                </div>
+            </div>
+
+            <div id="calendar-content" class="tab-content hidden bg-white p-3 sm:p-6 rounded-xl shadow-lg">
+                <h2 class="text-xl sm:text-2xl font-bold mb-1 text-center text-stone-800">3-Month Calendar View</h2>
+                <p class="instruction-text">Click any day for details. Click on meal names in the details panel for recipes.</p>
+                <div class="lg:flex lg:gap-6">
+                    <div id="calendar-view-container" class="lg:w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6 lg:mb-0">
+                        <p class="instruction-text md:col-span-3">Loading calendars...</p>
+                    </div>
+                    <div id="calendar-detail-container" class="lg:w-1/3 bg-stone-50 p-3 sm:p-6 rounded-lg border border-stone-200 min-h-[200px] mt-4 lg:mt-0">
+                        <p class="text-stone-500 text-center instruction-text">Select a day from the calendar to view details here.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="nutrition-content" class="tab-content hidden bg-white p-3 sm:p-6 rounded-xl shadow-lg">
+                 <h2 class="text-xl sm:text-2xl font-bold mb-1 text-center text-stone-800">Nutrition Hub</h2>
+                 <p class="instruction-text">Expand sections for meal ideas (click for recipes) and view macro targets.</p>
+                <div class="grid md:grid-cols-2 gap-3 sm:gap-6">
+                    <div class="bg-stone-50 p-3 sm:p-6 rounded-lg border border-stone-200">
+                        <h3 class="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 text-stone-800">Meal Ideas</h3>
+                        <div id="meal-accordion" class="space-y-2"></div>
+                    </div>
+                     <div class="bg-stone-50 p-3 sm:p-6 rounded-lg border border-stone-200">
+                        <h3 class="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 text-stone-800">Daily Macro Targets</h3>
+                        <div class="chart-container"><canvas id="macro-chart"></canvas></div>
+                        <p class="instruction-text mt-2">Approximate daily targets: 1800-2000 kcal. Use Calculators for personalized estimates.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="workouts-content" class="tab-content hidden bg-white p-3 sm:p-6 rounded-xl shadow-lg">
+                <h2 class="text-xl sm:text-2xl font-bold mb-1 text-center text-stone-800">Workout Library</h2>
+                <p class="instruction-text">Expand each workout type to see exercises and general instructions.</p>
+                <div id="workout-accordion" class="space-y-2"></div>
+            </div>
+
+            <div id="calculators-content" class="tab-content hidden bg-white p-3 sm:p-6 rounded-xl shadow-lg">
+                <h2 class="text-xl sm:text-2xl font-bold mb-1 text-center text-stone-800">Fitness Calculators</h2>
+                <p class="instruction-text">Estimate BMI, daily calorie needs, and macros. Select your preferred units.</p>
+                <div class="grid md:grid-cols-2 gap-4 sm:gap-6">
+                    <div class="bg-stone-50 p-3 sm:p-6 rounded-lg border border-stone-200">
+                        <h3 class="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 text-stone-800">BMI Calculator</h3>
+                        <div class="unit-toggle-group" id="bmi-unit-toggle">
+                            <button data-unit="metric" class="unit-toggle-button active">Metric (kg/cm)</button>
+                            <button data-unit="imperial" class="unit-toggle-button">Imperial (lbs/ft,in)</button>
+                        </div>
+                        <form id="bmi-form">
+                            <div id="bmi-metric-inputs">
+                                <div>
+                                    <label for="bmi-weight-kg" class="calculator-label">Weight (kg):</label>
+                                    <input type="number" id="bmi-weight-kg" class="calculator-input" step="0.1">
+                                </div>
+                                <div>
+                                    <label for="bmi-height-cm" class="calculator-label">Height (cm):</label>
+                                    <input type="number" id="bmi-height-cm" class="calculator-input">
+                                </div>
+                            </div>
+                            <div id="bmi-imperial-inputs" class="hidden">
+                                <div>
+                                    <label for="bmi-weight-lbs" class="calculator-label">Weight (lbs):</label>
+                                    <input type="number" id="bmi-weight-lbs" class="calculator-input" step="0.1">
+                                </div>
+                                <label class="calculator-label">Height:</label>
+                                <div class="imperial-fields">
+                                    <input type="number" id="bmi-height-ft" class="calculator-input" placeholder="ft">
+                                    <input type="number" id="bmi-height-in" class="calculator-input" placeholder="in" min="0" max="11">
+                                </div>
+                            </div>
+                            <button type="submit" class="calculator-button mt-2">Calculate BMI</button>
+                        </form>
+                        <div id="bmi-results" class="results-area hidden"></div>
+                    </div>
+
+                    <div class="bg-stone-50 p-3 sm:p-6 rounded-lg border border-stone-200">
+                        <h3 class="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 text-stone-800">Nutrition Calculator</h3>
+                         <div class="unit-toggle-group" id="nc-unit-toggle">
+                            <button data-unit="metric" class="unit-toggle-button active">Metric (kg/cm)</button>
+                            <button data-unit="imperial" class="unit-toggle-button">Imperial (lbs/ft,in)</button>
+                        </div>
+                        <form id="nutrition-calc-form">
+                            <div>
+                                <label for="nc-age" class="calculator-label">Age (years):</label>
+                                <input type="number" id="nc-age" class="calculator-input" required>
+                            </div>
+                            <div>
+                                <label for="nc-sex" class="calculator-label">Sex:</label>
+                                <select id="nc-sex" class="calculator-input">
+                                    <option value="male">Male</option>
+                                    <option value="female">Female</option>
+                                </select>
+                            </div>
+                            <div id="nc-metric-inputs">
+                                <div>
+                                    <label for="nc-weight-kg" class="calculator-label">Weight (kg):</label>
+                                    <input type="number" id="nc-weight-kg" class="calculator-input" step="0.1">
+                                </div>
+                                <div>
+                                    <label for="nc-height-cm" class="calculator-label">Height (cm):</label>
+                                    <input type="number" id="nc-height-cm" class="calculator-input">
+                                </div>
+                            </div>
+                            <div id="nc-imperial-inputs" class="hidden">
+                                <div>
+                                    <label for="nc-weight-lbs" class="calculator-label">Weight (lbs):</label>
+                                    <input type="number" id="nc-weight-lbs" class="calculator-input" step="0.1">
+                                </div>
+                                 <label class="calculator-label">Height:</label>
+                                <div class="imperial-fields">
+                                    <input type="number" id="nc-height-ft" class="calculator-input" placeholder="ft">
+                                    <input type="number" id="nc-height-in" class="calculator-input" placeholder="in" min="0" max="11">
+                                </div>
+                            </div>
+                            <div>
+                                <label for="nc-activity" class="calculator-label">Activity Level:</label>
+                                <select id="nc-activity" class="calculator-input">
+                                    <option value="1.2">Sedentary (little/no exercise)</option>
+                                    <option value="1.375">Lightly Active (1-3 days/week)</option>
+                                    <option value="1.55">Moderately Active (3-5 days/week)</option>
+                                    <option value="1.725">Very Active (6-7 days/week)</option>
+                                    <option value="1.9">Extra Active (hard exercise/job)</option>
+                                </select>
+                            </div>
+                             <div>
+                                <label for="nc-goal" class="calculator-label">Goal:</label>
+                                <select id="nc-goal" class="calculator-input">
+                                    <option value="maintain">Maintain Weight</option>
+                                    <option value="lose_0.25">Lose 0.25 kg/week (~250 kcal deficit)</option>
+                                    <option value="lose_0.5">Lose 0.5 kg/week (~500 kcal deficit)</option>
+                                    <option value="lose_0.75">Lose 0.75 kg/week (~750 kcal deficit)</option>
+                                    <option value="lose_1">Lose 1 kg/week (~1000 kcal deficit)</option>
+                                    <option value="gain_0.25">Gain 0.25 kg/week (~250 kcal surplus)</option>
+                                    <option value="gain_0.5">Gain 0.5 kg/week (~500 kcal surplus)</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="calculator-button mt-2">Calculate Nutrition</button>
+                        </form>
+                        <div id="nutrition-results" class="results-area hidden"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="mindset-content" class="tab-content hidden bg-white p-3 sm:p-6 rounded-xl shadow-lg">
+                <h2 class="text-xl sm:text-2xl font-bold mb-1 text-center text-stone-800">Mindset & Progress</h2>
+                <p class="instruction-text">Review your progress towards 20% PFM and reinforce your motivation with daily affirmations.</p>
+                <div class="grid md:grid-cols-2 gap-3 sm:gap-6">
+                    <div class="bg-stone-50 p-3 sm:p-6 rounded-lg border border-stone-200">
+                        <h3 class="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 text-stone-800">Progress to 20% PFM</h3>
+                        <div class="chart-container"><canvas id="progress-chart"></canvas></div>
+                         <p class="instruction-text mt-2">Visualize your journey and celebrate milestones.</p>
+                    </div>
+                    <div class="bg-stone-50 p-3 sm:p-6 rounded-lg border border-stone-200">
+                        <h3 class="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 text-stone-800">Daily Affirmations</h3>
+                        <div id="affirmation-container" class="prose prose-sm max-w-none"></div>
+                        <p class="instruction-text mt-2">Repeat these to strengthen your resolve.</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <div id="recipe-modal" class="modal hidden opacity-0">
+            <div class="modal-content">
+                <h3 id="recipe-modal-title" class="text-xl font-bold mb-4 text-stone-800">Recipe</h3>
+                <div id="recipe-modal-body">
+                    <h4 class="font-semibold text-md text-teal-700">Ingredients:</h4>
+                    <ul id="recipe-ingredients" class="list-disc list-inside text-sm text-stone-600 mb-3"></ul>
+                    <h4 class="font-semibold text-md text-teal-700">Instructions:</h4>
+                    <p id="recipe-instructions" class="text-sm text-stone-600 whitespace-pre-line"></p>
+                </div>
+                <button id="modal-close-button" class="modal-close-button">Close</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const DB = {
+            referenceStartDate: new Date(2025, 0, 6), 
+            daysOfWeek: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+            dayShortNames: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+            monthNames: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+            workoutCycle: [
+                { name: "Full Body A", type: 'strength', tag: 'FBA', id: 'a', color: 'bg-sky-100 text-sky-700' }, 
+                { name: "Cardio: 30-45 min MISS", type: 'cardio', tag: 'MISS', color: 'bg-lime-100 text-lime-700' }, 
+                { name: "Full Body B", type: 'strength', tag: 'FBB', id: 'b', color: 'bg-sky-100 text-sky-700' }, 
+                { name: "Cardio: 20 min HIIT", type: 'cardio', tag: 'HIIT', color: 'bg-amber-100 text-amber-700' }, 
+                { name: "Full Body C", type: 'strength', tag: 'FBC', id: 'c', color: 'bg-sky-100 text-sky-700' }, 
+                { name: "Cardio: 45-60 min Longer MISS", type: 'cardio', tag: 'L-MISS', color: 'bg-lime-100 text-lime-700' }, 
+                { name: "Active Recovery / Rest", type: 'rest', tag: 'Rest', color: 'bg-slate-100 text-slate-700' } 
+            ],
+            nutritionCycle: [ 
+                ["Breakfast: 3-Egg Omelet w/ veggies 🍲", "Snack 1: Greek yogurt w/ berries 🍓", "Lunch: Large Salad w/ chickpeas & paneer 🥗", "Snack 2: Apple w/ peanut butter 🍎", "Dinner: Tofu stir-fry w/ quinoa 🍚"],
+                ["Breakfast: Protein smoothie 🥤", "Snack 1: Handful of almonds 🌰", "Lunch: Leftover Tofu stir-fry", "Snack 2: Rice cakes w/ hummus", "Dinner: 2 Moong Dal Cheelas (Lentil Pancakes) 🥞"],
+                ["Breakfast: Quinoa Flakes Porridge w/ Berries & Nuts, 2 hard-boiled eggs 🥣🥚", "Snack 1: Cottage cheese w/ cucumber �", "Lunch: Quinoa bowl w/ beans & corn 🌽", "Snack 2: Pear 🍐", "Dinner: Paneer Tikka w/ salad 🍢"],
+                ["Breakfast: 3 Scrambled eggs w/ Sautéed Mushrooms & Bell Peppers 🍳", "Snack 1: Protein bar", "Lunch: Leftover Paneer Tikka", "Snack 2: Orange 🍊", "Dinner: Lentil soup w/ brown rice 🍲"],
+                ["Breakfast: Greek yogurt parfait 🍨", "Snack 1: Apple 🍎", "Lunch: Chickpea & spinach curry w/ 2 small rice flour rotis 🍛", "Snack 2: Banana 🍌", "Dinner: Flexible 'Eat Out' Meal"],
+                ["Breakfast: Protein pancakes (e.g., almond flour based) w/ berries 🥞🍓", "Snack 1: Mixed nuts & seeds 🥜", "Lunch: Large 'Buddha Bowl' (quinoa base) 🥗", "Snack 2: Fruit salad 🍉", "Dinner: Homemade Veggie Burgers (lentil/bean based, lettuce wrap or gluten-free bun) 🍔"],
+                ["Breakfast: Tofu Scramble with Spinach & side of Avocado 🥑", "Snack 1: Smoothie 🥤", "Lunch: Leftover Veggie Burgers", "Snack 2: Carrot sticks w/ hummus 🥕", "Dinner: Mixed Veggie & Paneer Sabzi w/ quinoa 🥘"]
+            ],
+            workoutDetails: [
+                { id: 'a', name: "Full Body A", 
+                  instructions: "<h5>Key Principles for Full Body A:</h5><ul><li>Warm-up: 5-10 mins light cardio & dynamic stretches.</li><li>Focus on proper form for each exercise. Control the weight.</li><li>Rest: 60-90 seconds between sets for compound lifts, 45-60s for isolation.</li><li>Progressive Overload: Aim to gradually increase weight or reps each week.</li><li>Cool-down: 5-10 mins static stretching.</li></ul>",
+                  exercises: ["Squats: 3x8-12", "Push-ups: 3x8-15", "Dumbbell Rows: 3x8-12/arm", "Overhead Press: 3x8-12", "RDLs: 3x10-15", "Plank: 3x30-60s", "Bicep Curls: 2-3x10-15", "Tricep Dips: 2-3x10-15"] },
+                { id: 'b', name: "Full Body B", 
+                  instructions: "<h5>Key Principles for Full Body B:</h5><ul><li>Warm-up thoroughly, especially for deadlifts if performing them.</li><li>Maintain strict form, especially with compound movements like deadlifts and lunges.</li><li>Rest: 60-90 seconds between sets.</li><li>Challenge yourself with weight but prioritize safety and form.</li><li>Cool-down with stretches focusing on major muscle groups worked.</li></ul>",
+                  exercises: ["Deadlifts or Glute Bridges: 3x8-12", "Lunges: 3x10-12/leg", "Lat Pulldowns or Rows: 3x8-12", "Incline Dumbbell Press: 3x8-12", "Lateral Raises: 3x12-15", "Leg Raises: 3x15-20", "Hammer Curls: 2-3x10-15", "Overhead Tricep Extensions: 2-3x10-15"] },
+                { id: 'c', name: "Full Body C", 
+                  instructions: "<h5>Key Principles for Full Body C:</h5><ul><li>Warm-up: 5-10 mins dynamic movement.</li><li>Focus on controlled movements and muscle contraction.</li><li>Rest: 60-90 seconds for compound, 45-60s for isolation.</li><li>This workout can include more unilateral (single-arm/leg) movements; focus on balance.</li><li>Cool-down: Full body static stretches.</li></ul>",
+                  exercises: ["Goblet Squats: 3x10-15", "Single-Arm DB Bench Press: 3x8-12/arm", "Bent-Over Rows: 3x8-12", "Arnold Press: 3x10-12", "Good Mornings: 3x12-15", "Russian Twists: 3x15-20/side", "Concentration Curls: 2x12-15/arm", "Tricep Pushdowns: 2x12-15"] }
+            ],
+            mealIdeas: [ 
+                { name: "Breakfast Options", items: ["3-Egg Omelet w/ veggies 🍲", "Protein smoothie 🥤", "Quinoa Flakes Porridge w/ Berries & Nuts, 2 hard-boiled eggs 🥣🥚", "Greek yogurt parfait 🍨", "Tofu Scramble with Spinach & side of Avocado 🥑", "Egg Bhurji (Spiced Scramble)"] },
+                { name: "Lunch Options", items: ["Large Salad w/ protein (chickpeas, paneer) 🥗", "Quinoa bowl w/ beans, corn, salsa 🌽", "Lentil soup w/ side of rice or millet 🍲", "Chickpea curry w/ rice flour roti 🍛", "'Buddha Bowl' (quinoa base)"] },
+                { name: "Dinner Options", items: ["Tofu/Paneer stir-fry w/ quinoa 🍚", "Moong Dal Cheelas (Lentil Pancakes) 🥞", "Paneer Tikka w/ salad 🍢", "Veggie Burgers (lettuce wrap or GF bun) 🍔", "Mixed Veggie Sabzi w/ quinoa 🥘"] },
+                { name: "Snack Options", items: ["Greek yogurt 🍓", "Handful of nuts/seeds 🌰", "Fruit w/ peanut butter 🍎", "Cottage cheese 🥒", "Protein bar", "Hard-boiled eggs 🥚", "Rice cakes w/ hummus"] }
+            ],
+            affirmations: [
+                "I am capable of achieving my health and fitness goals.", "Every healthy choice I make brings me closer to my goal.", "I am strong, resilient, and committed to my well-being.", "I choose to nourish my body with healthy foods.", "I am becoming healthier and stronger every day.", "I respect my body and the journey it's on.", "I forgive myself for any setbacks and get right back on track."
+            ],
+            dailyScheduleReminders: [ 
+                { hour: 7, minute: 0, message: "Time for Breakfast! Fuel your day." },
+                { hour: 10, minute: 30, message: "Mid-Morning Snack time. Keep your energy up!" },
+                { hour: 13, minute: 0, message: "Lunch break! Nourish your body." },
+                { hour: 15, minute: 30, message: "Afternoon Snack / Pre-Workout Fuel." },
+                { hour: 17, minute: 45, message: "Workout Session upcoming! Get ready to move." },
+                { hour: 19, minute: 30, message: "Dinner time. Enjoy a well-deserved meal." },
+                { hour: 21, minute: 0, message: "Prepare for tomorrow. Wind down for a good night's sleep." }
+            ],
+            recipes: { 
+                "3EggOmeletWVeggies": { name: "3-Egg Omelet with Veggies", ingredients: ["3 Large Eggs", "1/4 cup chopped spinach", "1/4 cup chopped mushrooms", "1 tbsp chopped onion (optional)", "Salt to taste", "Black pepper to taste", "1 tsp olive oil or cooking spray"], instructions: "1. Whisk eggs in a bowl with salt and pepper.\n2. Heat olive oil in a non-stick pan over medium heat.\n3. Add onions (if using), spinach, and mushrooms. Sauté until tender (2-3 minutes).\n4. Pour whisked eggs over the vegetables in the pan.\n5. Cook until the edges start to set. Gently lift the edges and tilt the pan to allow uncooked egg to flow underneath.\n6. Once mostly set but still slightly moist on top, fold the omelet in half.\n7. Cook for another minute or until cooked through to your liking. Serve immediately." },
+                "ProteinSmoothie": { name: "Protein Smoothie", ingredients: ["1 scoop protein powder (vegetarian)", "1/2 Banana (frozen for thicker smoothie)", "1 cup Spinach (fresh)", "1 tbsp Chia seeds", "1 cup Unsweetened almond milk (or water)", "Optional: 1/2 cup berries, ice cubes"], instructions: "1. Combine all ingredients in a blender.\n2. Blend until smooth and creamy.\n3. Add more liquid if too thick, or more ice/frozen fruit if too thin.\n4. Pour into a glass and enjoy immediately." },
+                "QuinoaFlakesPorridgeWBerriesNuts": { name: "Quinoa Flakes Porridge", ingredients: ["1/2 cup Quinoa flakes", "1 cup Water or unsweetened almond milk", "Pinch of salt", "1/4 cup Mixed berries (fresh or frozen)", "1 tbsp Chopped nuts (almonds, walnuts)", "Optional: Cinnamon, a few drops of vanilla extract, sweetener to taste"], instructions: "1. In a small saucepan, combine quinoa flakes, water/milk, and salt.\n2. Bring to a boil, then reduce heat to low and simmer for 90 seconds to 2 minutes, stirring occasionally, until thickened.\n3. Remove from heat. Stir in vanilla extract and sweetener if using.\n4. Pour into a bowl and top with berries and nuts. Serve warm." },
+                "TofuScrambleWithSpinachSideOfAvocado": { name: "Tofu Scramble with Spinach & Avocado", ingredients: ["1/2 block (7oz/200g) Firm or Extra-Firm Tofu, pressed and crumbled", "1 tsp Olive oil", "1/2 cup Chopped onion", "1 clove Garlic, minced", "1 cup Fresh spinach", "1/4 tsp Turmeric powder", "Pinch of black salt (kala namak, optional for eggy flavor)", "Salt and black pepper to taste", "1/4 Avocado, sliced"], instructions: "1. Heat olive oil in a non-stick skillet over medium heat.\n2. Add onion and cook until softened, about 3-4 minutes.\n3. Add minced garlic and cook for another minute until fragrant.\n4. Add crumbled tofu, turmeric, black salt (if using), salt, and pepper. Stir well to combine and break up tofu further. Cook for 5-7 minutes, stirring occasionally, until heated through.\n5. Stir in the spinach and cook until wilted, about 1-2 minutes.\n6. Serve immediately with sliced avocado on the side." },
+                 "MoongDalCheelasLentilPancakes": { name: "Moong Dal Cheelas (Lentil Pancakes)", ingredients: ["1 cup Moong dal (split yellow lentils), soaked for 2-3 hours", "1/2 inch Ginger, chopped", "1 Green chili, chopped (optional)", "1/4 tsp Turmeric powder", "Salt to taste", "Water, as needed for grinding", "Oil or ghee for cooking", "Optional: Chopped onions, tomatoes, cilantro for topping/mixing"], instructions: "1. Drain the soaked moong dal. Grind it with ginger, green chili, turmeric, and salt to a smooth batter. Add a little water if needed to get a dosa-like batter consistency (not too thick, not too thin).\n2. If using, mix in chopped onions, tomatoes, or cilantro into the batter.\n3. Heat a non-stick tawa or skillet on medium heat. Lightly grease with oil/ghee.\n4. Pour a ladleful of batter onto the tawa and spread it in a circular motion to form a thin pancake (cheela).\n5. Drizzle a little oil/ghee around the edges.\n6. Cook for 2-3 minutes on one side until golden brown and crisp. Flip and cook the other side for 1-2 minutes.\n7. Serve hot with mint chutney or yogurt." },
+                "PaneerTikkaWSalad": { name: "Paneer Tikka with Salad", ingredients: ["For Paneer Tikka:", "200g Paneer, cut into 1-inch cubes", "1/2 cup Thick yogurt (hung curd)", "1 tbsp Ginger-garlic paste", "1 tsp Red chili powder (or paprika for mild)", "1/2 tsp Turmeric powder", "1/2 tsp Garam masala", "1/2 tsp Chaat masala", "1 tbsp Lemon juice", "Salt to taste", "1 tbsp Besan (gram flour, optional for binding)", "1/2 Bell pepper (capsicum), cubed", "1/2 Onion, cubed", "Skewers (if grilling/baking)", "For Salad:", "Mixed greens", "Cucumber, sliced", "Tomatoes, sliced", "Lemon wedges"], instructions: "1. In a bowl, mix yogurt, ginger-garlic paste, red chili powder, turmeric, garam masala, chaat masala, lemon juice, salt, and besan (if using) to make a marinade.\n2. Add paneer cubes, bell pepper, and onion to the marinade. Mix gently to coat everything well. Let it marinate for at least 30 minutes (or longer in the fridge).\n3. If using skewers, thread the marinated paneer and vegetables onto them.\n4. Cooking options:\n   a) Grill: Grill on a preheated grill until paneer is golden and slightly charred.\n   b) Bake: Bake in a preheated oven at 200°C (400°F) for 15-20 minutes, turning halfway, until golden.\n   c) Pan-fry: Pan-fry on a non-stick skillet with a little oil until all sides are golden brown.\n5. Serve hot paneer tikka with a fresh green salad and lemon wedges."}
+            }
+        };
+
+        const state = {
+            activeTab: 'today',
+            selectedDate: new Date(), 
+            currentCalendarDate: new Date(),
+            taskCompletion: {},
+            bmiUnits: 'metric', 
+            ncUnits: 'metric' 
+        };
+        state.selectedDate.setHours(0,0,0,0); 
+        state.currentCalendarDate.setHours(0,0,0,0);
+
+        const ELS = {
+            tabs: document.querySelectorAll('.tab-button'),
+            tabContents: document.querySelectorAll('.tab-content'),
+            calendarViewContainer: document.getElementById('calendar-view-container'),
+            calendarDetail: document.getElementById('calendar-detail-container'),
+            todayDate: document.getElementById('today-date'),
+            todayReminderMessage: document.getElementById('today-reminder-message'),
+            todayWorkoutTaskContainer: document.getElementById('today-workout-task-container'),
+            todayNutritionTasksContainer: document.getElementById('today-nutrition-tasks-container'),
+            todayMotivation: document.getElementById('today-motivation'),
+            mealAccordion: document.getElementById('meal-accordion'),
+            workoutAccordion: document.getElementById('workout-accordion'),
+            affirmationContainer: document.getElementById('affirmation-container'),
+            bmiForm: document.getElementById('bmi-form'),
+            bmiUnitToggle: document.getElementById('bmi-unit-toggle'),
+            bmiMetricInputs: document.getElementById('bmi-metric-inputs'),
+            bmiImperialInputs: document.getElementById('bmi-imperial-inputs'),
+            bmiResults: document.getElementById('bmi-results'),
+            nutritionCalcForm: document.getElementById('nutrition-calc-form'),
+            ncUnitToggle: document.getElementById('nc-unit-toggle'),
+            ncMetricInputs: document.getElementById('nc-metric-inputs'),
+            ncImperialInputs: document.getElementById('nc-imperial-inputs'),
+            nutritionResults: document.getElementById('nutrition-results'),
+            recipeModal: document.getElementById('recipe-modal'),
+            recipeModalTitle: document.getElementById('recipe-modal-title'),
+            recipeIngredients: document.getElementById('recipe-ingredients'),
+            recipeInstructions: document.getElementById('recipe-instructions'),
+            modalCloseButton: document.getElementById('modal-close-button'),
+        };
+        
+        function getDaysInMonth(year, month) { return new Date(year, month + 1, 0).getDate(); }
+        function getFirstDayOfMonth(year, month) { return new Date(year, month, 1).getDay(); } 
+        
+        function getCyclicalPlanForDate(date) {
+            const refDate = new Date(DB.referenceStartDate);
+            refDate.setHours(0,0,0,0);
+            const targetDate = new Date(date); 
+            targetDate.setHours(0,0,0,0);
+            
+            const diffTime = Math.abs(targetDate - refDate);
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            
+            let cycleIndex = diffDays % 7;
+            if (targetDate < refDate) { 
+                 cycleIndex = (7 - ((-diffDays) % 7)) % 7;
+            }
+            
+            return {
+                workout: DB.workoutCycle[cycleIndex],
+                nutrition: DB.nutritionCycle[cycleIndex]
+            };
+        }
+
+        function renderMonthCalendar(year, month) {
+            const monthContainer = document.createElement('div');
+            monthContainer.className = 'bg-stone-100 p-2 sm:p-3 rounded-lg border border-stone-200'; // Adjusted padding
+            
+            const header = document.createElement('h3');
+            header.className = 'text-md sm:text-lg font-semibold mb-2 sm:mb-3 text-center text-stone-800'; // Adjusted font size
+            header.textContent = `${DB.monthNames[month]} ${year}`;
+            monthContainer.appendChild(header);
+
+            const daysGrid = document.createElement('div');
+            daysGrid.className = 'calendar-grid mb-2';
+            DB.dayShortNames.forEach(dayName => {
+                const dayHeader = document.createElement('div');
+                dayHeader.className = 'text-xs font-medium text-stone-500 text-center pb-1';
+                dayHeader.textContent = dayName;
+                daysGrid.appendChild(dayHeader);
+            });
+            monthContainer.appendChild(daysGrid);
+
+            const daysInMonth = getDaysInMonth(year, month);
+            const firstDay = getFirstDayOfMonth(year, month);
+
+            for (let i = 0; i < firstDay; i++) {
+                const emptyCell = document.createElement('div');
+                emptyCell.className = 'calendar-day empty';
+                daysGrid.appendChild(emptyCell);
+            }
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayCell = document.createElement('div');
+                dayCell.className = 'calendar-day'; // text-xs removed, handled in style
+                const currentDate = new Date(year, month, day);
+                currentDate.setHours(0,0,0,0);
+
+                const dateSpan = document.createElement('span');
+                dateSpan.textContent = day;
+                dayCell.appendChild(dateSpan);
+                
+                const plan = getCyclicalPlanForDate(currentDate);
+                if (plan.workout && plan.workout.tag) {
+                    const workoutTag = document.createElement('span');
+                    workoutTag.className = `workout-tag ${plan.workout.color}`;
+                    workoutTag.textContent = plan.workout.tag;
+                    dayCell.appendChild(workoutTag);
+                }
+
+                dayCell.dataset.date = currentDate.toISOString();
+
+                if (currentDate.getTime() === state.selectedDate.getTime()) {
+                    dayCell.classList.add('selected');
+                }
+                if (currentDate.getTime() === state.currentCalendarDate.getTime()) {
+                    dayCell.classList.add('today');
+                }
+                
+                dayCell.addEventListener('click', () => {
+                    state.selectedDate = new Date(dayCell.dataset.date);
+                    render(); 
+                });
+                daysGrid.appendChild(dayCell);
+            }
+            return monthContainer;
+        }
+
+        function getTaskKeyFromString(str) { 
+            if (typeof str !== 'string' || !str) return '';
+            const parts = str.split(':', 2);
+            const namePart = parts.length > 1 && parts[1] ? parts[1] : parts[0];
+            return namePart.trim().split(" ")[0].toLowerCase().replace(/[^a-z0-9]/gi, '');
+        }
+
+         function getRecipeKeyFromMealName(mealName) {
+            if (typeof mealName !== 'string' || !mealName) return '';
+            const parts = mealName.split(':', 2);
+            const namePartToProcess = parts.length > 1 && parts[1] ? parts[1] : parts[0];
+            // Remove emojis and non-alphanumeric characters for a cleaner key
+            return namePartToProcess.trim().replace(/[^\p{L}\p{N}\s]/gu, '').replace(/\s+/g, '');
+        }
+        
+        function setupEventListeners() {
+            ELS.tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    state.activeTab = tab.dataset.tab;
+                    render();
+                });
+            });
+
+            ELS.todayWorkoutTaskContainer.addEventListener('click', (e) => {
+                if (e.target.classList.contains('task-log-button')) {
+                    const taskName = e.target.dataset.taskName;
+                    toggleTaskCompletion(state.currentCalendarDate, taskName);
+                }
+            });
+            ELS.todayNutritionTasksContainer.addEventListener('click', (e) => {
+                 if (e.target.classList.contains('task-log-button')) {
+                    const taskName = e.target.dataset.taskName;
+                    toggleTaskCompletion(state.currentCalendarDate, taskName);
+                } else if (e.target.classList.contains('meal-item-clickable')) {
+                    const mealName = e.target.dataset.mealName;
+                    showRecipeModal(mealName);
+                }
+            });
+             ELS.calendarDetail.addEventListener('click', (e) => {
+                if (e.target.classList.contains('meal-item-clickable')) {
+                    const mealName = e.target.dataset.mealName;
+                    showRecipeModal(mealName);
+                }
+            });
+
+            ELS.bmiUnitToggle.addEventListener('click', (e) => {
+                if (e.target.tagName === 'BUTTON') {
+                    state.bmiUnits = e.target.dataset.unit;
+                    renderCalculatorUnits();
+                }
+            });
+             ELS.ncUnitToggle.addEventListener('click', (e) => {
+                if (e.target.tagName === 'BUTTON') {
+                    state.ncUnits = e.target.dataset.unit;
+                    renderCalculatorUnits();
+                }
+            });
+
+            ELS.bmiForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                let weightKg, heightCm;
+                if (state.bmiUnits === 'metric') {
+                    weightKg = parseFloat(document.getElementById('bmi-weight-kg').value);
+                    heightCm = parseFloat(document.getElementById('bmi-height-cm').value);
+                } else {
+                    const weightLbs = parseFloat(document.getElementById('bmi-weight-lbs').value);
+                    const heightFt = parseFloat(document.getElementById('bmi-height-ft').value) || 0;
+                    const heightIn = parseFloat(document.getElementById('bmi-height-in').value) || 0;
+                    if (weightLbs > 0) weightKg = weightLbs * 0.453592;
+                    if (heightFt >= 0 || heightIn > 0) heightCm = (heightFt * 30.48) + (heightIn * 2.54); else heightCm = 0;
+                }
+
+                if (weightKg > 0 && heightCm > 0) {
+                    const heightInMeters = heightCm / 100;
+                    const bmi = weightKg / (heightInMeters * heightInMeters);
+                    let category = '';
+                    if (bmi < 18.5) category = 'Underweight';
+                    else if (bmi < 24.9) category = 'Normal weight';
+                    else if (bmi < 29.9) category = 'Overweight';
+                    else category = 'Obesity';
+                    ELS.bmiResults.innerHTML = `<h4>Your BMI: ${bmi.toFixed(1)}</h4><p>Category: ${category}</p>`;
+                    ELS.bmiResults.classList.remove('hidden');
+                } else {
+                    ELS.bmiResults.innerHTML = `<p class="text-red-600">Please enter valid weight and height.</p>`;
+                    ELS.bmiResults.classList.remove('hidden');
+                }
+            });
+
+            ELS.nutritionCalcForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const age = parseInt(document.getElementById('nc-age').value);
+                const sex = document.getElementById('nc-sex').value;
+                const activityMultiplier = parseFloat(document.getElementById('nc-activity').value);
+                const goal = document.getElementById('nc-goal').value;
+                
+                let weightKg, heightCm;
+                if (state.ncUnits === 'metric') {
+                    weightKg = parseFloat(document.getElementById('nc-weight-kg').value);
+                    heightCm = parseFloat(document.getElementById('nc-height-cm').value);
+                } else {
+                    const weightLbs = parseFloat(document.getElementById('nc-weight-lbs').value);
+                    const heightFt = parseFloat(document.getElementById('nc-height-ft').value) || 0;
+                    const heightIn = parseFloat(document.getElementById('nc-height-in').value) || 0;
+                    if (weightLbs > 0) weightKg = weightLbs * 0.453592;
+                    if (heightFt >= 0 || heightIn > 0) heightCm = (heightFt * 30.48) + (heightIn * 2.54); else heightCm = 0;
+                }
+
+
+                if (age > 0 && weightKg > 0 && heightCm > 0) {
+                    let bmr = (10 * weightKg) + (6.25 * heightCm) - (5 * age);
+                    bmr += (sex === 'male' ? 5 : -161);
+                    const tdee = bmr * activityMultiplier;
+                    
+                    let calorieAdjust = 0;
+                    if (goal.startsWith('lose_')) calorieAdjust = -parseFloat(goal.split('_')[1]) * 1000 * 7 / 7; 
+                    else if (goal.startsWith('gain_')) calorieAdjust = parseFloat(goal.split('_')[1]) * 1000 * 7 / 7; 
+                    
+                    const targetCalories = tdee + calorieAdjust;
+
+                    const proteinGrams = Math.round((targetCalories * 0.35) / 4); 
+                    const carbGrams = Math.round((targetCalories * 0.40) / 4);   
+                    const fatGrams = Math.round((targetCalories * 0.25) / 9);     
+
+                    ELS.nutritionResults.innerHTML = `
+                        <h4>Estimated Needs:</h4>
+                        <p>BMR: ${bmr.toFixed(0)} kcal</p>
+                        <p>TDEE (Maintenance): ${tdee.toFixed(0)} kcal</p>
+                        <p><strong>Target Daily Calories: ${targetCalories.toFixed(0)} kcal</strong></p>
+                        <h4 class="mt-2">Approximate Macros:</h4>
+                        <p>Protein: ${proteinGrams}g</p>
+                        <p>Carbohydrates: ${carbGrams}g</p>
+                        <p>Fats: ${fatGrams}g</p>
+                    `;
+                    ELS.nutritionResults.classList.remove('hidden');
+                } else {
+                    ELS.nutritionResults.innerHTML = `<p class="text-red-600">Please enter valid age, weight, and height.</p>`;
+                    ELS.nutritionResults.classList.remove('hidden');
+                }
+            });
+
+            ELS.modalCloseButton.addEventListener('click', () => {
+                ELS.recipeModal.classList.add('hidden', 'opacity-0');
+            });
+            ELS.recipeModal.addEventListener('click', (e) => { 
+                if (e.target === ELS.recipeModal) {
+                    ELS.recipeModal.classList.add('hidden', 'opacity-0');
+                }
+            });
+        }
+
+        function renderCalculatorUnits() {
+            ELS.bmiMetricInputs.classList.toggle('hidden', state.bmiUnits !== 'metric');
+            ELS.bmiImperialInputs.classList.toggle('hidden', state.bmiUnits !== 'imperial');
+            Array.from(ELS.bmiUnitToggle.children).forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.unit === state.bmiUnits);
+            });
+
+            ELS.ncMetricInputs.classList.toggle('hidden', state.ncUnits !== 'metric');
+            ELS.ncImperialInputs.classList.toggle('hidden', state.ncUnits !== 'imperial');
+             Array.from(ELS.ncUnitToggle.children).forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.unit === state.ncUnits);
+            });
+        }
+
+        function toggleTaskCompletion(date, taskName) {
+            const dateKey = date.toISOString();
+            if (!state.taskCompletion[dateKey]) {
+                state.taskCompletion[dateKey] = {};
+            }
+            state.taskCompletion[dateKey][taskName] = !state.taskCompletion[dateKey][taskName];
+            render(); 
+        }
+        
+        function createAccordionItem(title, items, isWorkoutLibrary = false) {
+            let listItemsHTML = items.map(item => {
+                const recipeKey = getRecipeKeyFromMealName(item);
+                const hasRecipe = !isWorkoutLibrary && DB.recipes[recipeKey]; 
+                return `<li class="py-1 text-sm text-stone-600 ${hasRecipe ? 'meal-item-clickable' : ''}" ${hasRecipe ? `data-meal-name="${item}"` : ''}>${item}</li>`;
+            }).join('');
+
+            let instructionsHTML = '';
+            if (isWorkoutLibrary) {
+                const workoutDetail = DB.workoutDetails.find(wd => wd.name === title);
+                if (workoutDetail && workoutDetail.instructions) {
+                    instructionsHTML = `<div class="workout-instructions">${workoutDetail.instructions}</div>`;
+                }
+            }
+            
+            const details = document.createElement('details');
+            details.className = "group bg-stone-50 rounded-lg border border-stone-200 shadow-xs";
+            details.innerHTML = `
+                <summary class="flex justify-between items-center p-3 sm:p-4 font-semibold text-stone-700 cursor-pointer hover:bg-stone-100 rounded-t-lg">
+                    ${title}
+                    <span class="transform transition-transform duration-200 group-open:rotate-180 text-teal-600">&#9660;</span>
+                </summary>
+                <div class="p-3 sm:p-4 pt-0 border-t border-stone-200">
+                    ${instructionsHTML}
+                    <ul class="list-disc list-inside mt-2">${listItemsHTML}</ul>
+                </div>
+            `;
+            if (!isWorkoutLibrary) {
+                details.querySelector('ul').addEventListener('click', (e) => {
+                    if (e.target.classList.contains('meal-item-clickable')) {
+                        showRecipeModal(e.target.dataset.mealName);
+                    }
+                });
+            }
+            return details;
+        }
+        
+        function formatFullDate(date) {
+            return `${DB.daysOfWeek[date.getDay()]}, ${DB.monthNames[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+        }
+
+        function getTodaysReminder() {
+            const now = new Date();
+            const currentHour = now.getHours();
+            const currentMinute = now.getMinutes();
+
+            for (let i = DB.dailyScheduleReminders.length - 1; i >= 0; i--) {
+                const reminder = DB.dailyScheduleReminders[i];
+                if (currentHour > reminder.hour || (currentHour === reminder.hour && currentMinute >= reminder.minute)) {
+                    if (i + 1 < DB.dailyScheduleReminders.length) {
+                        return `Next up: ${DB.dailyScheduleReminders[i+1].message}`;
+                    } else {
+                        return "Great job today! Time to wind down.";
+                    }
+                }
+            }
+            return `Early start! ${DB.dailyScheduleReminders[0].message}`; 
+        }
+
+        function renderTodayTasks() {
+            const todayPlan = getCyclicalPlanForDate(state.currentCalendarDate);
+            const dateKey = state.currentCalendarDate.toISOString();
+            if (!state.taskCompletion[dateKey]) { 
+                state.taskCompletion[dateKey] = {};
+                state.taskCompletion[dateKey]['workout'] = false;
+                todayPlan.nutrition.forEach(item => {
+                    state.taskCompletion[dateKey][getTaskKeyFromString(item)] = false;
+                });
+            }
+            const dailyTasksStatus = state.taskCompletion[dateKey];
+            
+            const workoutTaskName = 'workout';
+            const isWorkoutDone = dailyTasksStatus[workoutTaskName];
+            let workoutInstructionsHTML = '';
+            const workoutDetail = DB.workoutDetails.find(wd => wd.id === todayPlan.workout.id);
+            if (workoutDetail && workoutDetail.instructions) {
+                workoutInstructionsHTML = `<div class="workout-instructions text-xs">${workoutDetail.instructions}</div>`;
+            }
+
+            ELS.todayWorkoutTaskContainer.innerHTML = `
+                <div class="task-item">
+                    <p class="text-sm ${isWorkoutDone ? 'completed' : ''}">${todayPlan.workout.name}</p>
+                    <button data-task-name="${workoutTaskName}" class="task-log-button task-button ${isWorkoutDone ? 'task-button-done' : 'task-button-pending'}">
+                        ${isWorkoutDone ? 'Done ✔' : 'Mark Done'}
+                    </button>
+                </div>
+                ${workoutInstructionsHTML}
+            `;
+            if (todayPlan.workout.id && workoutDetail) {
+                 ELS.todayWorkoutTaskContainer.innerHTML += `<ul class="list-disc list-inside text-xs text-stone-500 space-y-0.5 mt-1 pl-5">${workoutDetail.exercises.map(ex => `<li>${ex}</li>`).join('')}</ul>`;
+            }
+            
+            ELS.todayNutritionTasksContainer.innerHTML = todayPlan.nutrition.map(item => {
+                const taskKey = getTaskKeyFromString(item);
+                const recipeKey = getRecipeKeyFromMealName(item);
+                const isTaskDone = dailyTasksStatus[taskKey];
+                const hasRecipe = DB.recipes[recipeKey];
+
+                return `
+                    <div class="task-item">
+                        <p class="text-sm ${isTaskDone ? 'completed' : ''} ${hasRecipe ? 'meal-item-clickable' : ''}" ${hasRecipe ? `data-meal-name="${item}"` : ''}>${item}</p>
+                        <button data-task-name="${taskKey}" class="task-log-button task-button ${isTaskDone ? 'task-button-done' : 'task-button-pending'}">
+                            ${isTaskDone ? 'Done ✔' : 'Mark Done'}
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function showRecipeModal(mealName) {
+            const recipeKey = getRecipeKeyFromMealName(mealName);
+            const recipe = DB.recipes[recipeKey];
+            if (recipe) {
+                ELS.recipeModalTitle.textContent = recipe.name;
+                ELS.recipeIngredients.innerHTML = recipe.ingredients.map(ing => `<li>${ing}</li>`).join('');
+                ELS.recipeInstructions.textContent = recipe.instructions;
+                ELS.recipeModal.classList.remove('hidden', 'opacity-0');
+                setTimeout(() => ELS.recipeModal.style.opacity = 1, 10); 
+            } else {
+                console.warn("Recipe not found for:", mealName, "Key:", recipeKey);
+                 ELS.recipeModalTitle.textContent = "Recipe Not Available";
+                ELS.recipeIngredients.innerHTML = `<li>Sorry, the recipe for "${mealName.split(': ')[1] || mealName}" is not available at the moment.</li>`;
+                ELS.recipeInstructions.textContent = "Please check back later or consult other resources for this recipe.";
+                ELS.recipeModal.classList.remove('hidden', 'opacity-0');
+                setTimeout(() => ELS.recipeModal.style.opacity = 1, 10);
+            }
+        }
+
+
+        function render() {
+            ELS.tabs.forEach(tab => {
+                tab.classList.toggle('active-tab', tab.dataset.tab === state.activeTab);
+                tab.classList.toggle('inactive-tab', tab.dataset.tab !== state.activeTab);
+            });
+
+            ELS.tabContents.forEach(content => {
+                content.classList.toggle('hidden', content.id !== `${state.activeTab}-content`);
+            });
+            
+            if (state.activeTab === 'today') {
+                ELS.todayDate.textContent = formatFullDate(state.currentCalendarDate);
+                ELS.todayReminderMessage.textContent = getTodaysReminder();
+                renderTodayTasks();
+                ELS.todayMotivation.textContent = DB.affirmations[state.currentCalendarDate.getDay() % DB.affirmations.length];
+            }
+
+            if (state.activeTab === 'calendar') {
+                if (!ELS.calendarViewContainer.querySelector('.calendar-grid')) { 
+                    ELS.calendarViewContainer.innerHTML = ''; 
+                    const baseMonth = state.selectedDate.getMonth(); 
+                    const baseYear = state.selectedDate.getFullYear();
+                    
+                    for (let i = 0; i < 3; i++) {
+                        let month = baseMonth + i;
+                        let year = baseYear;
+                        if (month > 11) {
+                            month = month % 12;
+                            year += 1; 
+                        }
+                        ELS.calendarViewContainer.appendChild(renderMonthCalendar(year, month));
+                    }
+                } else { 
+                    document.querySelectorAll('.calendar-day.selected').forEach(el => el.classList.remove('selected'));
+                    const selectedDayElem = ELS.calendarViewContainer.querySelector(`.calendar-day[data-date="${state.selectedDate.toISOString()}"]`);
+                    if (selectedDayElem) selectedDayElem.classList.add('selected');
+                }
+                
+                const selectedDayPlan = getCyclicalPlanForDate(state.selectedDate);
+                let workoutInstructionsDetailHTML = '';
+                const workoutDetail = DB.workoutDetails.find(wd => wd.id === selectedDayPlan.workout.id);
+                if (workoutDetail && workoutDetail.instructions) {
+                     workoutInstructionsDetailHTML = `<div class="workout-instructions text-xs mt-1">${workoutDetail.instructions}</div>`;
+                }
+
+                ELS.calendarDetail.innerHTML = `
+                    <h3 class="text-lg font-semibold mb-3 text-stone-800">Details for <span class="text-teal-600">${formatFullDate(state.selectedDate)}</span></h3>
+                    <div class="space-y-4">
+                        <div>
+                            <h4 class="font-medium text-md mb-1 text-teal-700">Workout: ${selectedDayPlan.workout.name}</h4>
+                            ${workoutInstructionsDetailHTML}
+                            ${selectedDayPlan.workout.id && workoutDetail ? `<ul class="list-disc list-inside text-xs text-stone-600 space-y-0.5 mt-1">${workoutDetail.exercises.map(ex => `<li>${ex}</li>`).join('')}</ul>` : '<p class="text-xs text-stone-600 mt-1">Follow prescribed cardio or rest guidelines.</p>'}
+                        </div>
+                        <div>
+                            <h4 class="font-medium text-md mb-1 text-teal-700">Nutrition Plan</h4>
+                            <ul class="list-disc list-inside text-xs text-stone-600 space-y-0.5">${selectedDayPlan.nutrition.map(n => {
+                                const recipeKey = getRecipeKeyFromMealName(n);
+                                const hasRecipe = DB.recipes[recipeKey];
+                                return `<li class="${hasRecipe ? 'meal-item-clickable' : ''}" ${hasRecipe ? `data-meal-name="${n}"` : ''}>${n}</li>`;
+                            }).join('')}</ul>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            if (state.activeTab === 'nutrition' && !ELS.mealAccordion.hasChildNodes()) {
+                ELS.mealAccordion.innerHTML = ''; 
+                DB.mealIdeas.forEach(mealCat => {
+                    ELS.mealAccordion.appendChild(createAccordionItem(mealCat.name, mealCat.items));
+                });
+            }
+            
+            if (state.activeTab === 'workouts' && !ELS.workoutAccordion.hasChildNodes()) {
+                 ELS.workoutAccordion.innerHTML = ''; 
+                DB.workoutDetails.forEach(wd => {
+                     ELS.workoutAccordion.appendChild(createAccordionItem(wd.name, wd.exercises, true)); 
+                });
+            }
+
+            if (state.activeTab === 'mindset' && !ELS.affirmationContainer.hasChildNodes()) {
+                ELS.affirmationContainer.innerHTML = `<ul class="space-y-2">${DB.affirmations.map(a => `<li class="text-sm text-stone-600 p-2 bg-stone-100 rounded-md border border-stone-200">${a}</li>`).join('')}</ul>`;
+            }
+
+            if (state.activeTab === 'calculators') {
+                renderCalculatorUnits();
+            }
+        }
+        
+        let macroChartInstance, progressChartInstance;
+        function initCharts() {
+            if (document.getElementById('macro-chart') && state.activeTab === 'nutrition') { 
+                const macroCtx = document.getElementById('macro-chart').getContext('2d');
+                if (macroChartInstance) macroChartInstance.destroy();
+                macroChartInstance = new Chart(macroCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Protein (35%)', 'Carbs (40%)', 'Fats (25%)'],
+                        datasets: [{
+                            data: [35, 40, 25],
+                            backgroundColor: ['#0d9488', '#2dd4bf', '#5eead4'],
+                            borderColor: '#ffffff', 
+                            borderWidth: 3
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom', labels: { color: '#4b5563', font: { size: 10 } } } },
+                        cutout: '60%'
+                    }
+                });
+            }
+
+            if (document.getElementById('progress-chart') && state.activeTab === 'mindset') { 
+                const progressCtx = document.getElementById('progress-chart').getContext('2d');
+                if (progressChartInstance) progressChartInstance.destroy();
+                progressChartInstance = new Chart(progressCtx, {
+                    type: 'line',
+                    data: {
+                        labels: ['Start', 'Month 1', 'Month 2', 'Goal (Month 3)'],
+                        datasets: [{
+                            label: 'PFM %',
+                            data: [27.5, 24.5, 22, 20], 
+                            borderColor: '#0d9488',
+                            backgroundColor: 'rgba(13, 148, 136, 0.1)',
+                            fill: true,
+                            tension: 0.2,
+                            pointBackgroundColor: '#0d9488',
+                            pointBorderColor: '#ffffff',
+                            pointHoverBackgroundColor: '#ffffff',
+                            pointHoverBorderColor: '#0d9488',
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        scales: { 
+                            y: { 
+                                beginAtZero: false, 
+                                title: { display: true, text: 'Percent Fat Mass (%)', color: '#4b5563' },
+                                ticks: { color: '#6b7280' },
+                                grid: { color: '#e5e7eb' }
+                            },
+                            x: {
+                                ticks: { color: '#6b7280' },
+                                grid: { display: false }
+                            }
+                        },
+                        plugins: { legend: { labels: { color: '#4b5563' } } }
+                    }
+                });
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            setupEventListeners();
+            initCharts(); 
+            render(); 
+
+            ELS.tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const tabContentsArray = Array.from(ELS.tabContents);
+                    const activeTabContent = tabContentsArray.find(tc => tc.id === `${tab.dataset.tab}-content`);
+                    
+                    if ((tab.dataset.tab === 'nutrition' || tab.dataset.tab === 'mindset') && activeTabContent && !activeTabContent.classList.contains('hidden')) {
+                         setTimeout(initCharts, 50); 
+                    }
+                    if (tab.dataset.tab === 'calendar' && activeTabContent && !activeTabContent.classList.contains('hidden')) {
+                        if (!ELS.calendarViewContainer.querySelector('.calendar-grid')) { 
+                            render(); 
+                        }
+                    }
+                     if (tab.dataset.tab === 'calculators') { 
+                        renderCalculatorUnits();
+                    }
+                });
+            });
+        });
+
+    </script>
+</body>
+</html>
+�
